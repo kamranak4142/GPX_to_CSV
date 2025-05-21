@@ -5,20 +5,18 @@ import io
 import os
 import math
 
-# Create a sidebar for navigation between tabs
-st.sidebar.title("Navigation")
-app_mode = st.sidebar.radio("Choose a feature", ["GPX to CSV Converter", "CSV Filteration"])
+# --- Create Tabs ---
+tab1, tab2 = st.tabs(["📤 GPX to CSV Converter", "🔄 CSV Filteration"])
 
-if app_mode == "GPX to CSV Converter":
+with tab1:
     st.title("GPX to CSV Converter")
 
-    # File uploader: Allow multiple GPX files to be uploaded
+    # File uploader for multiple GPX files
     uploaded_files = st.file_uploader("Upload GPX files", type="gpx", accept_multiple_files=True)
 
     if uploaded_files:
         # Process each uploaded GPX file
         for uploaded_file in uploaded_files:
-            # Read and parse each GPX file
             gpx = gpxpy.parse(uploaded_file)
 
             # Prepare output CSV in memory
@@ -26,7 +24,6 @@ if app_mode == "GPX to CSV Converter":
             writer = csv.writer(output)
             writer.writerow(['trkpt_id', 'frame_latitude', 'frame_longitude', 'frame_time'])
 
-            # Extract data
             trkpt_id = 0
             for track in gpx.tracks:
                 for segment in track.segments:
@@ -43,7 +40,7 @@ if app_mode == "GPX to CSV Converter":
             output.seek(0)
             csv_bytes = output.getvalue().encode('utf-8')
 
-            # Generate a download link for each file
+            # Generate a download link for the CSV file
             csv_filename = os.path.splitext(uploaded_file.name)[0] + '.csv'
             st.success(f"CSV file is ready: {csv_filename}")
             st.download_button(
@@ -53,13 +50,12 @@ if app_mode == "GPX to CSV Converter":
                 mime='text/csv'
             )
 
-elif app_mode == "CSV Filteration":
+with tab2:
     st.title("CSV Filteration")
 
     # Instructions
     st.write("Upload a CSV file for processing with additional metadata.")
 
-    # File uploader for CSV
     uploaded_csv = st.file_uploader("Upload CSV file", type="csv")
 
     if uploaded_csv:
@@ -69,12 +65,12 @@ elif app_mode == "CSV Filteration":
         reader = csv.DictReader(csv_lines)
         points = list(reader)
 
-        # Parameters
+        # Parameters for filtering
         THRESHOLD_FT = 13
         THRESHOLD_M = THRESHOLD_FT * 0.3048
         DEFAULT_FRAME_ID = -2147483648
 
-        # Haversine formula to compute distance between lat/lon pairs
+        # Haversine formula for distance calculation
         def haversine(lat1, lon1, lat2, lon2):
             R = 6371000  # Earth radius in meters
             phi1 = math.radians(lat1)
@@ -87,6 +83,7 @@ elif app_mode == "CSV Filteration":
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
             return R * c
 
+        # Calculate bearing between two points
         def calculate_bearing(lat1, lon1, lat2, lon2):
             dLon = math.radians(lon2 - lon1)
             lat1 = math.radians(lat1)
