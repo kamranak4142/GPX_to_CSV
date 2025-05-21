@@ -5,6 +5,13 @@ import io
 import os
 import math
 
+# --- Set Page Config ---
+st.set_page_config(
+    page_title="DAG File Uploader",  # Title that appears in the browser tab
+    page_icon="📤",  # Icon that appears in the browser tab
+    layout="centered"  # Layout style ('centered' or 'wide')
+)
+
 # --- Create Tabs ---
 tab1, tab2 = st.tabs(["📤 GPX to CSV Converter", "🔄 CSV Filteration"])
 
