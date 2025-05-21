@@ -7,8 +7,8 @@ import math
 
 # --- Set Page Config ---
 st.set_page_config(
-    page_title="DAG File Uploader",  # Title that appears in the browser tab
-    page_icon="📤",  # Icon that appears in the browser tab
+    page_title="GPX to CSV",  # Title that appears in the browser tab
+    page_icon="🗂️",  # Icon that appears in the browser tab
     layout="centered"  # Layout style ('centered' or 'wide')
 )
 
