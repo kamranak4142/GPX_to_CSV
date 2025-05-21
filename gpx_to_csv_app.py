@@ -1,5 +1,6 @@
 import streamlit as st
 import gpxpy
+import gpxpy.gpx
 import csv
 import io
 import os
@@ -7,23 +8,24 @@ import math
 
 # --- Set Page Config ---
 st.set_page_config(
-    page_title="GPX to CSV",  
-    page_icon="🗂️",  
-    layout="centered"  
+    page_title="GPX to CSV",
+    page_icon="🗂️",
+    layout="centered"
 )
 
 # --- Create Tabs ---
 tab1, tab2 = st.tabs(["📤 GPX to CSV Converter", "🔄 CSV Filtration"])
 
+# --- GPX to CSV Converter ---
 with tab1:
     st.title("GPX to CSV Converter")
-
     uploaded_files = st.file_uploader("Upload GPX files", type="gpx", accept_multiple_files=True)
 
     if uploaded_files:
         for uploaded_file in uploaded_files:
             try:
-                gpx = gpxpy.parse(uploaded_file)
+                file_content = uploaded_file.read().decode("utf-8")  # Decode explicitly
+                gpx = gpxpy.parse(io.StringIO(file_content))  # Wrap with StringIO
             except gpxpy.gpx.GPXXMLSyntaxException:
                 st.error(f"❌ Failed to parse `{uploaded_file.name}`: Invalid GPX XML. Please check the file.")
                 continue
@@ -59,9 +61,9 @@ with tab1:
                 mime='text/csv'
             )
 
+# --- CSV Filtration ---
 with tab2:
     st.title("CSV Filtration")
-
     st.write("Upload a CSV file to filter and add metadata like direction.")
 
     uploaded_csv = st.file_uploader("Upload CSV file", type="csv")
@@ -82,8 +84,7 @@ with tab2:
             phi2 = math.radians(lat2)
             d_phi = math.radians(lat2 - lat1)
             d_lambda = math.radians(lon2 - lon1)
-            a = math.sin(d_phi / 2) ** 2 + \
-                math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+            a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
             return R * c
 
@@ -92,8 +93,7 @@ with tab2:
             lat1 = math.radians(lat1)
             lat2 = math.radians(lat2)
             x = math.sin(dLon) * math.cos(lat2)
-            y = math.cos(lat1) * math.sin(lat2) - \
-                (math.sin(lat1) * math.cos(lat2) * math.cos(dLon))
+            y = math.cos(lat1) * math.sin(lat2) - (math.sin(lat1) * math.cos(lat2) * math.cos(dLon))
             bearing = math.atan2(x, y)
             return (math.degrees(bearing) + 360) % 360
 
@@ -104,55 +104,59 @@ with tab2:
 
         filtered_rows = []
 
-        first = points[0]
-        last_lat = float(first['frame_latitude'])
-        last_lon = float(first['frame_longitude'])
+        try:
+            first = points[0]
+            last_lat = float(first['frame_latitude'])
+            last_lon = float(first['frame_longitude'])
 
-        filtered_rows.append({
-            'trkpt_id': first['trkpt_id'],
-            'frame_latitude': last_lat,
-            'frame_longitude': last_lon,
-            'frame_time': first['frame_time'],
-            'frame_id': DEFAULT_FRAME_ID,
-            'direction': '',
-            'cardinal_direction': ''
-        })
+            filtered_rows.append({
+                'trkpt_id': first['trkpt_id'],
+                'frame_latitude': last_lat,
+                'frame_longitude': last_lon,
+                'frame_time': first['frame_time'],
+                'frame_id': DEFAULT_FRAME_ID,
+                'direction': '',
+                'cardinal_direction': ''
+            })
 
-        for point in points[1:]:
-            lat = float(point['frame_latitude'])
-            lon = float(point['frame_longitude'])
+            for point in points[1:]:
+                lat = float(point['frame_latitude'])
+                lon = float(point['frame_longitude'])
 
-            distance = haversine(last_lat, last_lon, lat, lon)
+                distance = haversine(last_lat, last_lon, lat, lon)
 
-            if distance >= THRESHOLD_M:
-                bearing = calculate_bearing(last_lat, last_lon, lat, lon)
-                direction = get_direction(bearing)
-                cardinal = direction[0] if direction else ''
-                filtered_rows.append({
-                    'trkpt_id': point['trkpt_id'],
-                    'frame_latitude': lat,
-                    'frame_longitude': lon,
-                    'frame_time': point['frame_time'],
-                    'frame_id': DEFAULT_FRAME_ID,
-                    'direction': direction,
-                    'cardinal_direction': cardinal
-                })
-                last_lat, last_lon = lat, lon
+                if distance >= THRESHOLD_M:
+                    bearing = calculate_bearing(last_lat, last_lon, lat, lon)
+                    direction = get_direction(bearing)
+                    cardinal = direction[0] if direction else ''
+                    filtered_rows.append({
+                        'trkpt_id': point['trkpt_id'],
+                        'frame_latitude': lat,
+                        'frame_longitude': lon,
+                        'frame_time': point['frame_time'],
+                        'frame_id': DEFAULT_FRAME_ID,
+                        'direction': direction,
+                        'cardinal_direction': cardinal
+                    })
+                    last_lat, last_lon = lat, lon
 
-        output = io.StringIO()
-        fieldnames = ['trkpt_id', 'frame_latitude', 'frame_longitude', 'frame_time', 'frame_id', 'direction', 'cardinal_direction']
-        writer = csv.DictWriter(output, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(filtered_rows)
+            output = io.StringIO()
+            fieldnames = ['trkpt_id', 'frame_latitude', 'frame_longitude', 'frame_time', 'frame_id', 'direction', 'cardinal_direction']
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(filtered_rows)
 
-        output.seek(0)
-        csv_bytes = output.getvalue().encode('utf-8')
-        output_filename = "Processed_Metadata.csv"
+            output.seek(0)
+            csv_bytes = output.getvalue().encode('utf-8')
+            output_filename = "Processed_Metadata.csv"
 
-        st.success(f"✅ Filtered CSV is ready: {output_filename}")
-        st.download_button(
-            label="Download Processed CSV",
-            data=csv_bytes,
-            file_name=output_filename,
-            mime='text/csv'
-        )
+            st.success(f"✅ Filtered CSV is ready: {output_filename}")
+            st.download_button(
+                label="Download Processed CSV",
+                data=csv_bytes,
+                file_name=output_filename,
+                mime='text/csv'
+            )
+
+        except Exception as e:
+            st.error(f"❌ Error processing CSV file: {str(e)}")
