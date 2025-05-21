@@ -24,8 +24,8 @@ with tab1:
     if uploaded_files:
         for uploaded_file in uploaded_files:
             try:
-                file_content = uploaded_file.read().decode("utf-8")  # Decode explicitly
-                gpx = gpxpy.parse(io.StringIO(file_content))  # Wrap with StringIO
+                file_content = uploaded_file.read().decode("utf-8")
+                gpx = gpxpy.parse(io.StringIO(file_content))
             except gpxpy.gpx.GPXXMLSyntaxException:
                 st.error(f"❌ Failed to parse `{uploaded_file.name}`: Invalid GPX XML. Please check the file.")
                 continue
@@ -148,7 +148,10 @@ with tab2:
 
             output.seek(0)
             csv_bytes = output.getvalue().encode('utf-8')
-            output_filename = "Processed_Metadata.csv"
+
+            # --- ✅ Dynamic output filename based on uploaded file ---
+            original_filename = os.path.splitext(uploaded_csv.name)[0]
+            output_filename = f"{original_filename} Metadata.csv"
 
             st.success(f"✅ Filtered CSV is ready: {output_filename}")
             st.download_button(
