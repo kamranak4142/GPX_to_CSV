@@ -7,7 +7,7 @@ import math
 
 # Create a sidebar for navigation between tabs
 st.sidebar.title("Navigation")
-app_mode = st.sidebar.radio("Choose a feature", ["GPX to CSV Converter", "Another Feature"])
+app_mode = st.sidebar.radio("Choose a feature", ["GPX to CSV Converter", "CSV Filteration"])
 
 if app_mode == "GPX to CSV Converter":
     st.title("GPX to CSV Converter")
@@ -53,8 +53,8 @@ if app_mode == "GPX to CSV Converter":
                 mime='text/csv'
             )
 
-elif app_mode == "Another Feature":
-    st.title("Another Feature")
+elif app_mode == "CSV Filteration":
+    st.title("CSV Filteration")
 
     # Instructions
     st.write("Upload a CSV file for processing with additional metadata.")
