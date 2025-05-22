@@ -8,7 +8,7 @@ import math
 
 # --- Set Page Config ---
 st.set_page_config(
-    page_title="GPX to CSV",
+    page_title="Transconomy APP",
     page_icon="🗂️",
     layout="centered"
 )
