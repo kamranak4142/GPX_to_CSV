@@ -102,10 +102,12 @@ def write_csv(data, fieldnames):
     return output.getvalue().encode("utf-8")
 
 # --- Tabs ---
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📤 GPX to CSV Converter",
     "🔄 CSV Filtration",
-    "🧩 One-Step Convert & Filter"
+    "🧩 One-Step Convert & Filter",
+    "📸 Extract Frames & Embed GPS"
+    
 ])
 
 # --- GPX to CSV Converter ---
@@ -188,3 +190,99 @@ with tab3:
                 )
             except Exception as e:
                 st.error(f"❌ Error processing `{uploaded_file.name}`: {str(e)}")
+with tab4:
+    st.title("Extract Frames & Embed GPS")
+
+    video_file = st.file_uploader("Upload Video File (MP4)", type=["mp4"], key="video_file")
+    metadata_file = st.file_uploader("Upload Metadata CSV", type=["csv"], key="metadata_file")
+
+    if video_file and metadata_file:
+        try:
+            import tempfile
+            import cv2
+            import piexif
+            from fractions import Fraction
+            from datetime import datetime
+            import pandas as pd
+
+            st.info("Processing files...")
+
+            # Save temp video file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_video:
+                tmp_video.write(video_file.read())
+                tmp_video_path = tmp_video.name
+
+            # Save temp CSV file
+            csv_bytes = metadata_file.read()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_csv:
+                tmp_csv.write(csv_bytes)
+                tmp_csv_path = tmp_csv.name
+
+            # Load CSV
+            df = pd.read_csv(tmp_csv_path)
+            video = cv2.VideoCapture(tmp_video_path)
+            fps = video.get(cv2.CAP_PROP_FPS)
+
+            # Get base name for output folder
+            video_name = os.path.splitext(os.path.basename(video_file.name))[0]
+            output_folder = os.path.join(os.getcwd(), f"{video_name}_frames")
+            os.makedirs(output_folder, exist_ok=True)
+
+            # Helper functions
+            def decimal_to_dms(decimal):
+                degrees = int(abs(decimal))
+                minutes = int((abs(decimal) - degrees) * 60)
+                seconds = (abs(decimal) - degrees - minutes / 60) * 3600
+                return [(degrees, 1), (minutes, 1), (int(seconds * 100), 100)]
+
+            def create_gps_exif(lat, lon):
+                gps_ifd = {
+                    piexif.GPSIFD.GPSLatitudeRef: 'N' if lat >= 0 else 'S',
+                    piexif.GPSIFD.GPSLatitude: decimal_to_dms(lat),
+                    piexif.GPSIFD.GPSLongitudeRef: 'E' if lon >= 0 else 'W',
+                    piexif.GPSIFD.GPSLongitude: decimal_to_dms(lon),
+                }
+                exif_dict = {"GPS": gps_ifd}
+                return piexif.dump(exif_dict)
+
+            st.info("Starting frame extraction...")
+            progress_bar = st.progress(0)
+            total = len(df)
+
+            for index, row in df.iterrows():
+                try:
+                    timestamp = datetime.fromisoformat(row['frame_time'])
+                    start_time = datetime.fromisoformat(df['frame_time'].iloc[0])
+                    time_diff = (timestamp - start_time).total_seconds()
+                    frame_no = int(time_diff * fps)
+
+                    video.set(cv2.CAP_PROP_POS_FRAMES, frame_no)
+                    success, frame = video.read()
+
+                    if not success:
+                        st.warning(f"⚠️ Skipped frame at {time_diff:.2f}s (index {index})")
+                        continue
+
+                    image_filename = f"{video_name}_{frame_no}.jpg"
+                    image_path = os.path.join(output_folder, image_filename)
+
+                    # Save image
+                    cv2.imwrite(image_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+
+                    # Embed GPS
+                    lat = float(row['frame_latitude'])
+                    lon = float(row['frame_longitude'])
+                    exif_bytes = create_gps_exif(lat, lon)
+                    piexif.insert(exif_bytes, image_path)
+
+                except Exception as e:
+                    st.error(f"❌ Error at index {index}: {str(e)}")
+
+                progress_bar.progress((index + 1) / total)
+
+            video.release()
+            st.success(f"🎉 Done! Extracted frames saved to: `{output_folder}`")
+            st.info("Download frames manually from your working directory.")
+
+        except Exception as e:
+            st.error(f"❌ Failed to process files: {str(e)}")
