@@ -13,6 +13,8 @@ st.set_page_config(
     layout="centered"
 )
 
+st.title("🗂️ GPX Processing Utility App")
+
 # --- Helper Functions ---
 THRESHOLD_FT = 13
 THRESHOLD_M = THRESHOLD_FT * 0.3048
