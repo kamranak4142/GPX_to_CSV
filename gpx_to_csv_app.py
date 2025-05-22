@@ -13,7 +13,7 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("🗂️ GPX Processing Utility App")
+st.title("🗂️ Transconomy Utility App")
 
 # --- Helper Functions ---
 THRESHOLD_FT = 13
